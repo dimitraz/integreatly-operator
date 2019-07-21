@@ -2,6 +2,7 @@ package fuse
 
 import (
 	"context"
+
 	"github.com/integr8ly/integreatly-operator/pkg/apis/integreatly/v1alpha1"
 	"github.com/integr8ly/integreatly-operator/pkg/controller/installation/marketplace"
 	"github.com/integr8ly/integreatly-operator/pkg/controller/installation/products/config"
@@ -70,7 +71,6 @@ func (r *Reconciler) Reconcile(ctx context.Context, inst *v1alpha1.Installation,
 		return v1alpha1.PhaseFailed, errors.Wrap(err, " failed to reconcile fuse custom resource ")
 	}
 	// if we get to the end and no phase set then it is done
-
 	return reconciledPhase, nil
 }
 

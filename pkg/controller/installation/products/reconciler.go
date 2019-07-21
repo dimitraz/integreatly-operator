@@ -3,6 +3,7 @@ package products
 import (
 	"context"
 	"errors"
+
 	"github.com/integr8ly/integreatly-operator/pkg/apis/integreatly/v1alpha1"
 	"github.com/integr8ly/integreatly-operator/pkg/controller/installation/marketplace"
 	"github.com/integr8ly/integreatly-operator/pkg/controller/installation/products/amqstreams"
@@ -12,11 +13,12 @@ import (
 	"github.com/integr8ly/integreatly-operator/pkg/controller/installation/products/rhsso"
 	"k8s.io/client-go/rest"
 
+	"net/http"
+
 	"github.com/integr8ly/integreatly-operator/pkg/controller/installation/products/amqonline"
 	"github.com/integr8ly/integreatly-operator/pkg/controller/installation/products/threescale"
 	appsv1Client "github.com/openshift/client-go/apps/clientset/versioned/typed/apps/v1"
 	oauthClient "github.com/openshift/client-go/oauth/clientset/versioned/typed/oauth/v1"
-	"net/http"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
