@@ -12,13 +12,13 @@ import (
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
-	errors2 "k8s.io/apimachinery/pkg/api/errors"
-	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8serr "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	pkgclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// This is the base reconciler that all the other reconcilers extend. It handles things like namespace creation, subscription creation etc
-
+// Reconciler is the base reconciler that all the other reconcilers extend.
+// It handles things like namespace creation, subscription creation etc
 type Reconciler struct {
 	mpm marketplace.MarketplaceInterface
 }
@@ -31,13 +31,13 @@ func NewReconciler(mpm marketplace.MarketplaceInterface) *Reconciler {
 
 func (r *Reconciler) ReconcileNamespace(ctx context.Context, namespace string, inst *v1alpha1.Installation, client pkgclient.Client) (v1alpha1.StatusPhase, error) {
 	ns := &v1.Namespace{
-		ObjectMeta: v12.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name: namespace,
 		},
 	}
 	err := client.Get(ctx, pkgclient.ObjectKey{Name: ns.Name}, ns)
 	if err != nil {
-		if !errors2.IsNotFound(err) {
+		if !k8serr.IsNotFound(err) {
 			return v1alpha1.PhaseFailed, errors.Wrap(err, fmt.Sprintf("could not retrieve namespace: %s", ns.Name))
 		}
 		prepareNS(ns, inst)
@@ -46,6 +46,9 @@ func (r *Reconciler) ReconcileNamespace(ctx context.Context, namespace string, i
 		}
 		return v1alpha1.PhaseCompleted, nil
 	}
+
+	logrus.Infof("reconciling namespace: %s", namespace)
+
 	// ns exists so check it is our namespace
 	if !NSIsOwnedBy(ns, inst) && ns.Status.Phase != v1.NamespaceTerminating {
 		return v1alpha1.PhaseFailed, errors.New("existing namespace found with name " + ns.Name + " but it is not owned by the integreatly installation and it isn't being deleted")
@@ -76,13 +79,13 @@ func (r *Reconciler) ReconcileSubscription(ctx context.Context, inst *v1alpha1.I
 		marketplace.IntegreatlyChannel,
 		[]string{namespace},
 		v1alpha12.ApprovalAutomatic)
-	if err != nil && !errors2.IsAlreadyExists(err) {
+	if err != nil && !k8serr.IsAlreadyExists(err) {
 		return v1alpha1.PhaseFailed, errors.Wrap(err, fmt.Sprintf("could not create subscription in namespace: %s", namespace))
 	}
 	ip, sub, err := r.mpm.GetSubscriptionInstallPlan(ctx, client, subscriptionName, namespace)
 	if err != nil {
 		// this could be the install plan or subscription so need to check if sub nil or not TODO refactor
-		if errors2.IsNotFound(err) {
+		if k8serr.IsNotFound(err) {
 			if sub != nil {
 				logrus.Infof("time since created %v", time.Now().Sub(sub.CreationTimestamp.Time).Seconds())
 			}
@@ -92,7 +95,7 @@ func (r *Reconciler) ReconcileSubscription(ctx context.Context, inst *v1alpha1.I
 				if err := client.Delete(ctx, sub, func(options *pkgclient.DeleteOptions) {
 					gp := int64(0)
 					options.GracePeriodSeconds = &gp
-				}); err != nil && !errors2.IsNotFound(err) {
+				}); err != nil && !k8serr.IsNotFound(err) {
 					return v1alpha1.PhaseFailed, errors.Wrap(err, "failed to delete existing subscription "+subscriptionName)
 				}
 			}
@@ -107,6 +110,7 @@ func (r *Reconciler) ReconcileSubscription(ctx context.Context, inst *v1alpha1.I
 		logrus.Infof("%s install plan is not complete yet ", subscriptionName)
 		return v1alpha1.PhaseInProgress, nil
 	}
+
 	logrus.Infof("%s install plan is complete. Installation ready ", subscriptionName)
 	return v1alpha1.PhaseCompleted, nil
 }
@@ -115,7 +119,7 @@ func prepareNS(ns *v1.Namespace, install *v1alpha1.Installation) {
 	if ns.Labels == nil {
 		ns.Labels = map[string]string{}
 	}
-	ref := v12.NewControllerRef(install, v1alpha1.SchemaGroupVersionKind)
+	ref := metav1.NewControllerRef(install, v1alpha1.SchemaGroupVersionKind)
 	ns.Labels["integreatly"] = "true"
 	refExists := false
 	for _, er := range ns.OwnerReferences {
